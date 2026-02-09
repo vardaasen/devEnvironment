@@ -19,3 +19,5 @@ coverage/
 
 # Pester output (root-level)
 testResults.xml
+
+testResults.xml
