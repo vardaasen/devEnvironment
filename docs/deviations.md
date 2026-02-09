@@ -185,3 +185,40 @@ Pre-commit kjører `pwsh -NoProfile` — en ren sesjon der variablene ikke eksis
 ### Løsning
 
 Lagt inn faktisk kildekode i `00-history.ps1`. Bekreftet grønt i både manuell kjøring og pre-commit.
+
+---
+
+## AVV-007: Regex `.*` matcher ikke på tvers av linjeskift i Pester
+
+**Dato:** 2025-02-09
+**Fase:** Testing / Pester
+**Alvorlighet:** Lav
+
+### Beskrivelse
+
+4 tester for `setup.ps1` feilet fordi regex-mønstrene brukte `.*` for å matche mellom to nøkkelord som lå på forskjellige linjer:
+```powershell
+# Feilet — .* stopper ved linjeskift
+$SetupContent | Should -Match 'New-Item.*Directory.*\.config'
+$SetupContent | Should -Match 'Command Processor.*AutoRun'
+$SetupContent | Should -Match 'mklink.*settings\.json'
+$SetupContent | Should -Match '\.\s*".*Microsoft\.PowerShell_profile\.ps1"'
+```
+
+### Årsak
+
+`Get-Content -Raw` returnerer hele filen som én streng med `\n`-tegn. I .NET regex matcher `.` som standard **ikke** linjeskift (`\n`). Mønsteret `A.*B` feiler dersom A og B er på forskjellige linjer.
+
+### Løsning
+
+Delte opp sammensatte regex til separate assertions som matcher enkeltlinjer:
+```powershell
+# Passerer — hvert nøkkelord testes separat
+$SetupContent | Should -Match 'New-Item -ItemType Directory'
+$SetupContent | Should -Match 'GlobalConfig'
+```
+
+### Lærdom
+
+- For flerlinjet innhold: test hvert nøkkelord separat, eller bruk `(?s)` (SingleLine-flagg) for å la `.` matche `\n`
+- Enklere assertions er lettere å debugge og gir bedre feilmeldinger
