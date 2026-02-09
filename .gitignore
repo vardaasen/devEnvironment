@@ -13,3 +13,6 @@ __pycache__/
 *.pyc
 TestResults/
 coverage/
+
+# macOS preview artifacts (Parallels/Finder)
+._*
