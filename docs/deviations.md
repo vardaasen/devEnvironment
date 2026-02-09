@@ -152,3 +152,36 @@ Escape-tegnet `[char]27` fra `$Global:e`-testen lekket inn i testresultatet. XML
 
 - Unngå at binære/kontroll-tegn havner i Pester assertion-verdier når XML-export er aktiv
 - Hold testresultat-format separat for lokal utvikling vs CI
+
+---
+
+## AVV-006: Falsk grønt — sesjonsvariabel overlevde mellom testkjøringer
+
+**Dato:** 2025-02-09
+**Fase:** Testing / TDD
+**Alvorlighet:** Høy
+
+### Beskrivelse
+
+Tester for `00-history.ps1` passerte manuelt (`Invoke-Pester`) men feilet i pre-commit hook. Tre tester ga feil:
+
+- `$Global:e` var `0` i stedet for `27`
+- VT-sekvens lengde var `3` i stedet for `4`
+- History handler returnerte `MemoryAndFile` for git-kommandoer
+
+### Årsak
+
+Kildefilen `.config/powershell/modules/00-history.ps1` var **tom**. Testene passerte manuelt fordi `$Global:e` og history handler allerede var satt i den aktive PowerShell-sesjonen fra tidligere kjøringer.
+
+Pre-commit kjører `pwsh -NoProfile` — en ren sesjon der variablene ikke eksisterer.
+
+### Lærdom
+
+- **Falsk grønt er verre enn rødt** — det gir falsk trygghet
+- Pre-commit hooks fungerer som en uavhengig verifikasjon nettopp fordi de kjører isolert
+- Verifiser alltid at kildefiler har innhold før du stoler på grønne tester
+- Vurder å legge til en test som sjekker at kildefilen ikke er tom
+
+### Løsning
+
+Lagt inn faktisk kildekode i `00-history.ps1`. Bekreftet grønt i både manuell kjøring og pre-commit.
