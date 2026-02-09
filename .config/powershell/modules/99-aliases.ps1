@@ -1,9 +1,23 @@
 # --- modules\99-aliases.ps1 ---
 
-# 1. iA Writer Shortcut
+# 1. iA Writer Shortcut (Personal, paid)
 function ia { & 'C:\Program Files\iA Writer\iAWriter.exe' $args }
 
-# 2. Dynamic Visual Studio DevShell
+# 2. Generic Note Editor (Graceful Degradation)
+function note {
+    $editors = @(
+        @{ Cmd = 'obsidian'; Path = "$env:LOCALAPPDATA\Obsidian\Obsidian.exe" }
+        @{ Cmd = 'code';     Path = $null }
+        @{ Cmd = 'notepad';  Path = 'notepad.exe' }
+    )
+    foreach ($ed in $editors) {
+        if (Get-Command $ed.Cmd -ErrorAction SilentlyContinue) {
+            & $ed.Cmd $args; return
+        }
+    }
+}
+
+# 3. Dynamic Visual Studio DevShell
 function Enter-DevShell {
     $startTime = Get-Date
 
@@ -31,7 +45,7 @@ function Enter-DevShell {
 }
 Set-Alias -Name vs -Value Enter-DevShell
 
-# 3. Smart Choco Wrapper (Admin Protection)
+# 4. Smart Choco Wrapper (Admin Protection)
 function choco {
     $command = $args[0]
     $AdminActions = @('install', 'upgrade', 'uninstall', 'enable', 'disable')

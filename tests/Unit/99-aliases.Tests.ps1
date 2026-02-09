@@ -13,6 +13,25 @@ Describe "99-aliases" {
         }
     }
 
+    Describe "Generic Note Editor" {
+        It "Defines note function" {
+            Get-Command note -CommandType Function -ErrorAction SilentlyContinue |
+                Should -Not -BeNullOrEmpty
+        }
+
+        It "Has a fallback chain with at least notepad" {
+            $body = (Get-Command note -CommandType Function).ScriptBlock.ToString()
+            $body | Should -Match 'notepad'
+        }
+
+        It "Checks for obsidian first" {
+            $body = (Get-Command note -CommandType Function).ScriptBlock.ToString()
+            $indexObsidian = $body.IndexOf('obsidian')
+            $indexNotepad = $body.IndexOf('notepad')
+            $indexObsidian | Should -BeLessThan $indexNotepad
+        }
+    }
+
     Describe "Visual Studio DevShell" {
         It "Defines Enter-DevShell function" {
             Get-Command Enter-DevShell -CommandType Function -ErrorAction SilentlyContinue |
