@@ -7,9 +7,7 @@
         Verbosity = 'Detailed'
     }
     TestResult = @{
-        Enabled    = $true
-        OutputPath = './TestResults/results.xml'
-        OutputFormat = 'NUnit3'
+        Enabled    = $false
     }
     CodeCoverage = @{
         Enabled    = $false

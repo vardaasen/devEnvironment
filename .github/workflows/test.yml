@@ -13,7 +13,15 @@ jobs:
 
       - name: Run Tests
         shell: pwsh
-        run: Invoke-Pester -Configuration (Import-PowerShellDataFile .pester.psd1)
+        run: |
+          $config = New-PesterConfiguration
+          $config.Run.Path = './tests'
+          $config.Run.Exit = $true
+          $config.Output.Verbosity = 'Detailed'
+          $config.TestResult.Enabled = $true
+          $config.TestResult.OutputPath = './TestResults/results.xml'
+          $config.TestResult.OutputFormat = 'NUnit3'
+          Invoke-Pester -Configuration $config
 
       - name: Upload Results
         if: always()

@@ -89,3 +89,66 @@ Add-Content .gitignore "testResults.xml"
 
 - Kjør `Invoke-Pester` og sjekk hvor output havner *før* første commit
 - Ignorer både mappe og rot-nivå artefakter i `.gitignore`
+
+---
+
+## AVV-004: `$HOME` er read-only i PowerShell
+
+**Dato:** 2025-02-09
+**Fase:** Testing / Pester
+**Alvorlighet:** Lav
+
+### Beskrivelse
+
+Første versjon av `00-history.Tests.ps1` forsøkte å overstyre `$HOME` i `BeforeAll` for å isolere tester mot `TestDrive:\`:
+```powershell
+$Global:HOME = "TestDrive:\"
+```
+
+Alle 6 tester feilet med:
+```
+SessionStateUnauthorizedAccessException: Cannot overwrite variable HOME
+because it is read-only or constant.
+```
+
+### Årsak
+
+`$HOME` er en PowerShell automatisk variabel markert som read-only. Den kan ikke overstyres, heller ikke med `$Global:` scope.
+
+### Løsning
+
+Testet mot faktisk `$HOME` i stedet for å forsøke isolering. Akseptabelt fordi:
+- Modulen kun oppretter mapper under `$HOME\.local\` (ufarlig side-effekt)
+- Idempotens-testen bekrefter at rerun ikke feiler
+
+### Lærdom
+
+- PowerShell automatic variables (`$HOME`, `$PID`, `$PSVersionTable` etc.) er read-only
+- For filsystem-isolering i Pester, mock `New-Item`/`Test-Path` heller enn å overstyre path-variabler
+
+---
+
+## AVV-005: NUnit XML-export krasjer på VT escape-tegn (0x1B)
+
+**Dato:** 2025-02-09
+**Fase:** Testing / Pester
+**Alvorlighet:** Middels
+
+### Beskrivelse
+
+Pester XML-rapport (NUnit3) feilet med:
+```
+"Hexadecimal value 0x1B, is an invalid character"
+```
+
+Escape-tegnet `[char]27` fra `$Global:e`-testen lekket inn i testresultatet. XML-standarden tillater ikke kontroll-tegn under 0x20 (unntatt 0x09, 0x0A, 0x0D).
+
+### Løsning
+
+1. Tester omskrevet til å sammenlikne numerisk (`[int][char]`) i stedet for rå escape-verdier
+2. XML-rapport deaktivert lokalt — kun aktiv i CI ved behov
+
+### Lærdom
+
+- Unngå at binære/kontroll-tegn havner i Pester assertion-verdier når XML-export er aktiv
+- Hold testresultat-format separat for lokal utvikling vs CI
