@@ -1,0 +1,20 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+        exclude: '\.(bat|cmd|reg)$'
+
+  - repo: local
+    hooks:
+      - id: pester-unit
+        name: Pester Unit Tests
+        entry: pwsh -NoProfile -Command "Invoke-Pester ./tests/Unit -CI -Output Minimal"
+        language: system
+        files: '\.ps1$'
+        pass_filenames: false

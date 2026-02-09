@@ -1,0 +1,15 @@
+.vs/
+*.bak
+*.log
+clink_history*
+clink_errorlevel*
+clink.log
+*.history
+.lesshst
+*_history.txt
+
+# Build/Cache
+__pycache__/
+*.pyc
+TestResults/
+coverage/
