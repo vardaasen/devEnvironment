@@ -16,3 +16,6 @@ coverage/
 
 # macOS preview artifacts (Parallels/Finder)
 ._*
+
+# Pester output (root-level)
+testResults.xml
