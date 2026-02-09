@@ -222,3 +222,37 @@ $SetupContent | Should -Match 'GlobalConfig'
 
 - For flerlinjet innhold: test hvert nøkkelord separat, eller bruk `(?s)` (SingleLine-flagg) for å la `.` matche `\n`
 - Enklere assertions er lettere å debugge og gir bedre feilmeldinger
+
+---
+
+## AVV-008: `IndexOf` finner første forekomst uavhengig av kontekst
+
+**Dato:** 2025-02-09
+**Fase:** Testing / Pester
+**Alvorlighet:** Lav
+
+### Beskrivelse
+
+Testen "Sets XDG before setup" brukte `IndexOf('XDG_CONFIG_HOME')` og `IndexOf('setup.ps1')` for å verifisere rekkefølge. Testen feilet fordi `setup.ps1` forekommer først i sanity-check seksjonen (linje ~20) før XDG-seksjonen (linje ~27).
+```powershell
+# Feilet — "setup.ps1" finnes i sanity check FØR XDG
+$xdgIndex = $BootstrapContent.IndexOf('XDG_CONFIG_HOME')    # 1045
+$setupIndex = $BootstrapContent.IndexOf('setup.ps1')         # 745
+```
+
+### Årsak
+
+`String.IndexOf()` returnerer posisjonen til første forekomst. Generiske søkestrenger som `setup.ps1` kan matche kommentarer, valideringer eller andre referanser — ikke bare selve kjøringen.
+
+### Løsning
+
+Brukte seksjonstitler som er unike i filen:
+```powershell
+$xdgIndex = $BootstrapContent.IndexOf('ENFORCE XDG')   # Unik seksjon
+$setupIndex = $BootstrapContent.IndexOf('PHASE 1')      # Unik seksjon
+```
+
+### Lærdom
+
+- `IndexOf`-baserte rekkefølgetester krever unike søkestrenger
+- Seksjonskommentarer (`PHASE 1`, `ENFORCE XDG`) er sikrere ankerpunkter enn kode-fragmenter som kan forekomme flere steder
