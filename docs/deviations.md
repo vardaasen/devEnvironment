@@ -59,3 +59,33 @@ Når filer forhåndsvises med macOS Quick Look (spacebar) fra Parallels-delt fil
 ### Løsning
 
 Lagt til `._*` i `.gitignore`.
+
+---
+
+## AVV-003: `testResults.xml` spores av Git tross `.gitignore`
+
+**Dato:** 2025-02-09
+**Fase:** Infrastruktur
+**Alvorlighet:** Lav
+
+### Beskrivelse
+
+Pester-konfigurasjonen i `.pester.psd1` bruker `OutputPath = './TestResults/results.xml'` (mappe med stor T), men Pester genererte `testResults.xml` i rot-mappen. Filen ble staget og pushet før `.gitignore` fanget den opp.
+
+Pre-commit hookene `end-of-file-fixer` og `mixed-line-ending` feilet gjentatte ganger på denne filen.
+
+### Årsak
+
+- Case-mismatch mellom `.gitignore` (`TestResults/`) og faktisk output (`testResults.xml` i rot)
+- Filen ble commitet før ignore-regelen var på plass — Git tracker filer som allerede er commitet uansett `.gitignore`
+
+### Løsning
+```powershell
+git rm --cached testResults.xml
+Add-Content .gitignore "testResults.xml"
+```
+
+### Lærdom
+
+- Kjør `Invoke-Pester` og sjekk hvor output havner *før* første commit
+- Ignorer både mappe og rot-nivå artefakter i `.gitignore`
