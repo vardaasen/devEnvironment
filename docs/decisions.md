@@ -195,3 +195,73 @@ Host github-work
 - OWASP Secrets Management Cheat Sheet
 - GitHub SSH key documentation
 - 1Password SSH Agent documentation
+
+---
+
+## ADR-006: Identitets- og autentiseringsarkitektur
+
+**Dato:** 2025-02-10
+**Status:** Under utredning
+
+### Kjerneinnsikt
+
+Hvis OS-brukernavn samsvarer med forge-brukernavn (GitHub/Gitea), kan hele autentiseringsflyten automatiseres uten manuell secret-håndtering:
+```
+$env:USERNAME (OS) → git user.name → gh auth login (OAuth/SSO)
+→ ssh-keygen → gh ssh-key add → ferdig
+```
+
+### Åpne spørsmål
+
+1. **Miljøstrategi** — Native Windows vs WSL2 vs Devcontainer vs Nix?
+   Valget påvirker alt nedstrøms: hvor nøkler lagres, hvordan PATH fungerer, hvilke verktøy som er tilgjengelige.
+
+2. **Forge-agnostisk?** — `gh cli` (GitHub), `tea cli` (Gitea), `glab` (GitLab) har alle OAuth-flyt. Bør scriptet støtte flere, eller er GitHub nok?
+
+3. **Nøkkellivssyklus** — Generere ny nøkkel per maskin? Per repo? Rotere automatisk? Revoke ved deprovisionering?
+
+4. **Progressiv kompleksitet** — Bør grunnoppsettet fungere uten vault, men *støtte* vault for de som vil?
+
+### Mulig automatisert flyt
+```powershell
+# Hele onboarding i én kommando
+function Initialize-DevIdentity {
+    $username = $env:USERNAME
+
+    # 1. Generer nøkkel hvis den ikke finnes
+    if (-not (Test-Path "~/.ssh/id_ed25519")) {
+        ssh-keygen -t ed25519 -C "$username" -f "$HOME/.ssh/id_ed25519" -N '""'
+    }
+
+    # 2. Autentiser mot GitHub via OAuth
+    gh auth login --web --git-protocol ssh
+
+    # 3. Last opp SSH-nøkkel
+    gh ssh-key add ~/.ssh/id_ed25519.pub --title "$env:COMPUTERNAME"
+
+    # 4. Konfigurer signering
+    git config --global gpg.format ssh
+    git config --global user.signingkey ~/.ssh/id_ed25519.pub
+    git config --global commit.gpgsign true
+
+    # 5. Allowed signers
+    "$username $(Get-Content ~/.ssh/id_ed25519.pub)" |
+        Set-Content ~/.ssh/allowed_signers
+    git config --global gpg.ssh.allowedSignersFile ~/.ssh/allowed_signers
+}
+```
+
+### Vault-integrasjon (Nivå 2)
+
+For de som vil, kan private nøkler delegeres til vault etter initial setup:
+- 1Password SSH Agent (mest modent)
+- Bitwarden/Vaultwarden (gratis, self-hostable)
+- ProtonPass (nyere)
+
+Vault erstatter ikke OAuth-flyten — den sikrer nøklene *etter* at de er generert.
+
+### Beslutning
+
+Utsatt. Implementerer ikke secrets-håndtering i dette prosjektet ennå. Trenger å lande på miljøstrategi først, da den påvirker resten av designet.
+
+Grunnleggende `.env.template` og onboarding-dokumentasjon kan legges til som midlertidig løsning uten å låse arkitekturen.
