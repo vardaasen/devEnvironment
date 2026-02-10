@@ -11,6 +11,17 @@ Layer 2: provision.ps1   → User tools via Cargo, Winget, Chocolatey
 ```
 
 ## Quick Start
+
+### Prerequisites
+
+PowerShell requires script execution to be enabled. Run this **once** as Administrator:
+```powershell
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+`RemoteSigned` allows local scripts to run but requires downloaded scripts to be signed. This is Microsoft's recommended setting for developers.
+
+### Bootstrap
 ```powershell
 # Clone and enter
 git clone https://github.com/vardaasen/devEnvironment.git
@@ -54,7 +65,7 @@ devEnvironment/
 ├── tests/
 │   └── Unit/                                  # Pester test suite
 ├── docs/
-│   ├── deviations.md                          # Deviation log (AVV-001 through AVV-009)
+│   ├── deviations.md                          # Deviation log (AVV-001 through AVV-010)
 │   ├── decisions.md                           # Architecture Decision Records
 │   └── progress.md                            # Session progress log
 ├── conhost_theme.reg                          # Legacy console green-on-black theme
@@ -123,8 +134,8 @@ LF everywhere except legacy batch files. Enforced by `.gitattributes` and pre-co
 
 ## Documentation
 
-- `docs/deviations.md` — Issues encountered and solutions (AVV-001 through AVV-009)
-- `docs/decisions.md` — Architecture Decision Records (ADR-001 through ADR-004)
+- `docs/deviations.md` — Issues encountered and solutions (AVV-001 through AVV-010)
+- `docs/decisions.md` — Architecture Decision Records (ADR-001 through ADR-007)
 - `docs/progress.md` — Work session log
 
 
