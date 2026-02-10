@@ -2,20 +2,17 @@
 
 ## Økt 1 — 2025-02-09
 
-### Utført
+### Infrastruktur
 
-- [x] Opprettet repostruktur med alle mapper og tomme filer
+- [x] Repostruktur med alle mapper og tomme filer
 - [x] `git init` + lokal gitconfig med auth
 - [x] `gh repo create` — repo opprettet på GitHub
-- [x] `.gitignore`, `.editorconfig`, `.gitattributes` fylt inn
-- [x] `.pre-commit-config.yaml` konfigurert
-- [x] `.pester.psd1` testkonfigurasjon
+- [x] `.gitignore`, `.editorconfig`, `.gitattributes`
+- [x] `.pre-commit-config.yaml` med trailing whitespace, EOF, line endings, Pester
+- [x] `.pester.psd1` testkonfigurasjon (XML-rapport deaktivert lokalt)
 - [x] `.github/workflows/test.yml` CI-pipeline
-- [x] `tests/Unit/infrastructure.Tests.ps1` — smoke test
-- [x] Dokumenterte AVV-001 til AVV-006
-- [x] Dokumenterte ADR-001 til ADR-004
 
-### PowerShell-moduler (alle med tester)
+### PowerShell-moduler (alle med Pester-tester)
 
 - [x] `00-history.ps1` — XDG history, escape char, git filter
 - [x] `05-checks.ps1` — miljødeteksjon, caching, .NET info
@@ -23,10 +20,33 @@
 - [x] `20-bindings.ps1` — Vi mode, posh-git, zoxide, PSFzf, choco lazy-load
 - [x] `90-banner.ps1` — startup banner, ytelsesmåling
 - [x] `99-aliases.ps1` — iA Writer, note fallback, VS DevShell, choco wrapper
+- [x] `Microsoft.PowerShell_profile.ps1` — profile loader med per-modul timing
 
-### Neste steg
+### Scripts (alle med Pester-tester)
 
-- [ ] `Microsoft.PowerShell_profile.ps1` — profile loader
-- [ ] Scripts: `setup.ps1`, `provision.ps1`, `platform.ps1`, `bootstrap.ps1`
-- [ ] Konfig: Lua, TOML, JSON, bat, reg
-- [ ] README.md
+- [x] `setup.ps1` — symlinks, registry, profile shims
+- [x] `provision.ps1` — Cargo, Winget, Chocolatey provisioning
+- [x] `platform.ps1` — pakkemanagere, Rust, runtimes, fonter
+- [x] `bootstrap.ps1` — orkestrator
+
+### Konfigurasjonsfiler (alle med valideringstester)
+
+- [x] Starship TOML (PowerShell + WSL)
+- [x] WezTerm Lua
+- [x] Windows Terminal JSONC
+- [x] Clink settings + Lua scripts
+- [x] CMD autorun batch
+- [x] Conhost registry theme
+- [x] VS Dev Profile (.vsconfig)
+
+### Dokumentasjon
+
+- [x] AVV-001 til AVV-009 (avvikslogg)
+- [x] ADR-001 til ADR-004 (beslutningslogg)
+- [x] README.md
+
+### Teststatus
+
+- Totalt: 80+ Pester-tester
+- Alle grønne lokalt og via pre-commit
+- CI-pipeline konfigurert for GitHub Actions
