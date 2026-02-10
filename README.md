@@ -117,6 +117,22 @@ Modules are loaded in numeric order by the profile loader. Each module has a spe
 
 **Chocolatey:** make, mingw (gcc), wget, unzip, gzip
 
+## Optional Tooling (provision-fun.ps1)
+
+Opinionated extras, run separately:
+```powershell
+.\scripts\provision-fun.ps1          # Install
+.\scripts\provision-fun.ps1 -Upgrade # Update all
+```
+
+**LLVM:** clang for Freenet and C/C++ tooling
+
+**Matrix:** iamb (terminal/Vim), Cinny (desktop), Neoment (Neovim plugin)
+
+**IDEs:** JetBrains Toolbox (→ PyCharm, GoLand, Rider, CLion), VS Code, Cursor
+
+**Music:** [resistance](https://codeberg.org/vardaasen/resistance) — terminal-based music player
+
 ## Testing
 ```powershell
 # Run all tests
