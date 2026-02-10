@@ -5,7 +5,7 @@
 [CmdletBinding()]
 param()
 
-$RepoRoot = $PSScriptRoot
+$RepoRoot = Split-Path $PSScriptRoot -Parent
 $GlobalConfig = "$env:USERPROFILE\.config"
 
 # --- 1. LINK .CONFIG FOLDERS ---

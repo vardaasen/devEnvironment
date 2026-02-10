@@ -6,7 +6,7 @@
 [CmdletBinding()]
 param()
 
-$RepoRoot = $PSScriptRoot
+$RepoRoot = Split-Path $PSScriptRoot -Parent
 
 # --- 1. PREREQ: PRIVILEGE ---
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -16,7 +16,7 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 }
 
 # --- 2. PREREQ: SANITY CHECK ---
-if (-not (Test-Path "$RepoRoot\setup.ps1")) {
+if (-not (Test-Path "$RepoRoot\scripts\setup.ps1")) {
     Write-Error "Critical: setup.ps1 not found in $RepoRoot."
     Write-Error "Please run this script from the root of your dotfiles repository."
     Break
@@ -34,7 +34,7 @@ if ([System.Environment]::GetEnvironmentVariable('XDG_CONFIG_HOME', 'User') -ne 
 Write-Host "`n--- PHASE 1: CONFIGURATION (Linking) ---" -ForegroundColor Green
 try {
     Set-Location $RepoRoot
-    .\setup.ps1 -ErrorAction Stop
+    .\scripts\setup.ps1 -ErrorAction Stop
 } catch {
     Write-Error "Setup Phase Failed: $_"
     Break
@@ -43,7 +43,7 @@ try {
 # --- 5. EXECUTION: PHASE 2 (Provisioning) ---
 Write-Host "`n--- PHASE 2: PROVISIONING (Tooling) ---" -ForegroundColor Green
 try {
-    .\provision.ps1 -ErrorAction Stop
+    .\scripts\provision.ps1 -ErrorAction Stop
 } catch {
     Write-Error "Provisioning Phase Failed: $_"
     # We don't break here, because partial tooling is better than no tooling.

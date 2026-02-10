@@ -272,3 +272,35 @@ Windows Terminal bruker JSONC (JSON with Comments) som inkluderer `//`-kommentar
 ### Løsning
 
 Erstattet JSON-parsing med innholdsvalidering via regex (`"profiles"`, `"schemes"`, `"defaultProfile"`).
+
+---
+
+## AVV-010: `$PSScriptRoot` peker til `scripts/`, ikke repo-rot
+
+**Dato:** 2025-02-09
+**Fase:** Integrasjon / Kjøring
+**Alvorlighet:** Høy
+
+### Beskrivelse
+
+Etter at scriptene ble flyttet fra reporot til `scripts/`-mappen, pekte `$PSScriptRoot` til `scripts/` i stedet for repo-roten. `setup.ps1` lette etter `.config` i `scripts\.config` som ikke eksisterer.
+
+### Årsak
+
+Originalprosjektet hadde alle scripts i rot. Ny mappestruktur (`scripts/`) endret `$PSScriptRoot`-verdien uten at referansene ble oppdatert.
+
+### Løsning
+```powershell
+# Før (antok rot)
+$RepoRoot = $PSScriptRoot
+
+# Etter (navigerer opp fra scripts/)
+$RepoRoot = Split-Path $PSScriptRoot -Parent
+```
+
+Også oppdatert stier i `bootstrap.ps1` for å kalle `scripts\setup.ps1` og `scripts\provision.ps1`.
+
+### Lærdom
+
+- Når filer flyttes i mappestruktur, må alle `$PSScriptRoot`-referanser oppdateres
+- Integrasjonstesting avslører stifeil som enhetstester med innholdsvalidering ikke fanger
