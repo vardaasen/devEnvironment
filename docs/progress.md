@@ -1,6 +1,6 @@
 # Fremdriftslogg
 
-## Økt 1 — 2025-02-09
+## Økt 1 — 2025-02-09 / 2025-02-10
 
 ### Infrastruktur
 
@@ -10,7 +10,7 @@
 - [x] `.gitignore`, `.editorconfig`, `.gitattributes`
 - [x] `.pre-commit-config.yaml` med trailing whitespace, EOF, line endings, Pester
 - [x] `.pester.psd1` testkonfigurasjon (XML-rapport deaktivert lokalt)
-- [x] `.github/workflows/test.yml` CI-pipeline
+- [x] `.github/workflows/test.yml` CI-pipeline med Pester + PSScriptAnalyzer (non-blocking)
 
 ### PowerShell-moduler (alle med Pester-tester)
 
@@ -28,6 +28,7 @@
 - [x] `provision.ps1` — Cargo, Winget, Chocolatey provisioning
 - [x] `platform.ps1` — pakkemanagere, Rust, runtimes, fonter
 - [x] `bootstrap.ps1` — orkestrator
+- [x] Integrasjonstestet: `bootstrap.ps1` kjørt som admin, full hydration OK
 
 ### Konfigurasjonsfiler (alle med valideringstester)
 
@@ -39,14 +40,39 @@
 - [x] Conhost registry theme
 - [x] VS Dev Profile (.vsconfig)
 
+### Sikkerhet og identitet
+
+- [x] SSH commit-signering konfigurert og verifisert
+- [x] Signert all git-historikk via rebase
+- [x] Security Considerations i README
+- [x] ADR-005: Admin-kjøring og sikkerhetsvurderinger
+- [x] ADR-006: Identitets- og autentiseringsarkitektur (under utredning)
+- [x] ADR-006/007: Secrets management (under vurdering, duplikat beholdt bevisst)
+- [x] PSScriptAnalyzer som valgfri CI-jobb
+
 ### Dokumentasjon
 
-- [x] AVV-001 til AVV-009 (avvikslogg)
-- [x] ADR-001 til ADR-004 (beslutningslogg)
-- [x] README.md
+- [x] README.md med arkitektur, struktur, bruk, sikkerhet
+- [x] AVV-001 til AVV-010 (avvikslogg)
+- [x] ADR-001 til ADR-007 (beslutningslogg)
+- [x] LICENSE (MIT)
 
 ### Teststatus
 
-- Totalt: 80+ Pester-tester
-- Alle grønne lokalt og via pre-commit
-- CI-pipeline konfigurert for GitHub Actions
+- Totalt: 201 Pester-tester passert, 2 skipped (WezTerm-spesifikke)
+- Pre-commit hooks: trailing whitespace, EOF, merge conflicts, YAML, line endings, Pester
+- CI: GitHub Actions med Pester + PSScriptAnalyzer
+
+### Repo
+
+- [x] Publisert som offentlig repo
+- [x] Alle commits signert med SSH
+
+### Uløst / neste økt
+
+- [ ] Lande på miljøstrategi (native/WSL2/devcontainer/nix)
+- [ ] Implementere automatisert identitetsflyt (`Initialize-DevIdentity`)
+- [ ] `.env.template` og onboarding-dokumentasjon
+- [ ] SSH config template
+- [ ] Integrere `Set-GitIdentity` i PowerShell-profilen
+- [ ] Vurdere vault-integrasjon (1Password/Bitwarden)
