@@ -21,3 +21,6 @@ coverage/
 testResults.xml
 
 testResults.xml
+
+# Personal environment (never commit)
+.env

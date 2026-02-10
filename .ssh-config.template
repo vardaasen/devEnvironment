@@ -1,0 +1,20 @@
+# SSH Config Template
+# Copy relevant sections to ~/.ssh/config
+
+# --- GitHub (Personal) ---
+Host github-personal
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/id_ed25519
+    IdentitiesOnly yes
+
+# --- GitHub (Work) ---
+# Host github-work
+#     HostName github.com
+#     User git
+#     IdentityFile ~/.ssh/id_ed25519_work
+#     IdentitiesOnly yes
+
+# --- Vault-managed keys (1Password example) ---
+# Host *
+#     IdentityAgent "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
