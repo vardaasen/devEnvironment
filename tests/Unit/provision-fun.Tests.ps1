@@ -48,7 +48,33 @@ Describe "provision-fun.ps1" {
         }
     }
 
+    Describe "AI Tooling" {
+        It "Has dedicated AI section" {
+            $ScriptContent | Should -Match 'AI TOOLING'
+        }
+
+        It "Installs Claude Code" {
+            $ScriptContent | Should -Match 'claude-code'
+        }
+
+        It "Installs Warp" {
+            $ScriptContent | Should -Match 'Warp'
+        }
+
+        It "References Dagger" {
+            $ScriptContent | Should -Match 'Dagger'
+        }
+
+        It "Documents Docker requirement" {
+            $ScriptContent | Should -Match 'Docker'
+        }
+    }
+
     Describe "IDEs and Editors" {
+        It "Has dedicated IDE section" {
+            $ScriptContent | Should -Match 'IDEs AND EDITORS'
+        }
+
         It "Installs JetBrains Toolbox" {
             $ScriptContent | Should -Match 'JetBrains\.Toolbox'
         }
@@ -59,6 +85,20 @@ Describe "provision-fun.ps1" {
 
         It "Installs Cursor" {
             $ScriptContent | Should -Match 'Cursor'
+        }
+    }
+
+    Describe "Container Strategy" {
+        It "Has container detection section" {
+            $ScriptContent | Should -Match 'CONTAINER RUNTIME'
+        }
+
+        It "Checks for nested virtualization" {
+            $ScriptContent | Should -Match 'nested'
+        }
+
+        It "Supports remote Docker fallback" {
+            $ScriptContent | Should -Match 'DOCKER_HOST'
         }
     }
 

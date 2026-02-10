@@ -265,3 +265,90 @@ Vault erstatter ikke OAuth-flyten — den sikrer nøklene *etter* at de er gener
 Utsatt. Implementerer ikke secrets-håndtering i dette prosjektet ennå. Trenger å lande på miljøstrategi først, da den påvirker resten av designet.
 
 Grunnleggende `.env.template` og onboarding-dokumentasjon kan legges til som midlertidig løsning uten å låse arkitekturen.
+
+---
+
+## ADR-008: Container- og virtualiseringsstrategi
+
+**Dato:** 2025-02-10
+**Status:** Under utredning
+
+### Kontekst
+
+AI-verktøy (Claude Code, Warp MCP, Dagger MCP) krever Docker/containere. Miljøet kan kjøre på ulike plattformer med ulike begrensninger.
+
+### Kjøremiljøer
+
+| Scenario | Nested Virt | Container-løsning | Merknad |
+|---|---|---|---|
+| Native Windows | Ja | Docker Desktop / WSL2 | Enklest |
+| Native Linux | Ja | Docker Engine / Podman | Enklest |
+| Native macOS | Ja | OrbStack / Docker Desktop | OrbStack anbefalt |
+| Windows i Parallels (macOS) | Nei | Remote Docker til macOS-host | Parallels blokkerer Hyper-V |
+| Windows på billig VPS | Varierer | Remote Docker til separat host | KVM-avhengig |
+| WSL2 på Windows | Ja (via host) | Docker Desktop med WSL2-backend | Delt daemon |
+
+### Problemstilling: Nested Virtualisering
+
+Docker krever en hypervisor (Hyper-V / KVM). Når Windows kjører som gjest i Parallels, er nested virtualisering ofte utilgjengelig eller ustabil. Da trengs en annen strategi:
+```
+┌─ macOS Host ─────────────────────────┐
+│  OrbStack / Docker Desktop           │
+│  ┌─ Container Engine ──────────────┐ │
+│  │  Dagger, DevContainers, MCP     │ │
+│  └─────────────────────────────────┘ │
+│                                      │
+│  ┌─ Parallels VM ──────────────────┐ │
+│  │  Windows (ingen nested virt)    │ │
+│  │  DOCKER_HOST=tcp://host:2375    │ │
+│  │  → Snakker med macOS Docker     │ │
+│  └─────────────────────────────────┘ │
+└──────────────────────────────────────┘
+```
+
+### Container-løsninger rangert
+
+#### macOS (host)
+
+1. **OrbStack** — Raskest, lavest ressursbruk, drop-in Docker-erstatning
+2. **Colima** — CLI-basert, bruker Lima, gratis
+3. **Lima** — Lavnivå VM-manager, manuelt oppsett
+4. **Docker Desktop** — Offisiell, tungt, lisensbegrensninger for enterprise
+
+#### Windows (native)
+
+1. **Docker Desktop + WSL2** — Standard, best integrasjon med VS Code devcontainers
+2. **Podman Desktop** — Rootless, daemonless, OCI-kompatibel
+3. **WSL2 + Docker Engine** — Manuelt, men lettere enn Docker Desktop
+4. **Rancher Desktop** — Alternativ med nerdctl
+
+#### Linux
+
+1. **Docker Engine** — Standard
+2. **Podman** — Rootless, systemd-integrasjon
+3. **nerdctl + containerd** — Minimalt
+
+### AI-verktøy
+
+| Verktøy | Type | Krav | Installasjon |
+|---|---|---|---|
+| Claude Code | CLI agent | Node.js 18+ | npm install -g @anthropic-ai/claude-code |
+| Warp Terminal | Terminal + MCP | — | Winget / dmg |
+| Dagger | CI/CD engine | Docker | curl + Docker |
+
+### Sikkerhetsvurderinger
+
+1. **Docker socket-eksponering** — `DOCKER_HOST=tcp://` uten TLS er usikret. Produksjon krever TLS-sertifikater eller SSH-tunnel.
+2. **Remote Docker over nettverk** — Kun på lokalt nett eller via SSH-tunnel (`ssh -L`). Aldri eksponér Docker-socket direkte på internett.
+3. **Devcontainer-sikkerhet** — Containere kjører som root som standard. Bruk `remoteUser` og `--userns` for isolasjon.
+4. **MCP-servere** — Hver MCP-server er en prosess med tilgang til miljøet. Begrens med allowlists og sandboxing.
+5. **Docker Desktop lisens** — Gratis for personlig bruk og små bedrifter (<250 ansatte, <$10M). Verifiser for enterprise.
+6. **WSL2-isolasjon** — Deler kernel med Windows-host. Ikke en sikkerhetsgrense for container-escape.
+
+### Beslutning
+
+Utsatt. Krever klargjøring av:
+1. Primært kjøremiljø (native vs Parallels vs VPS)
+2. Om devcontainers skal erstatte eller supplere native oppsett
+3. Lisensmodell (Docker Desktop vs alternativer)
+4. Nettverk og TLS for remote Docker
