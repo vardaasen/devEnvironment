@@ -127,6 +127,27 @@ LF everywhere except legacy batch files. Enforced by `.gitattributes` and pre-co
 - `docs/decisions.md` — Architecture Decision Records (ADR-001 through ADR-004)
 - `docs/progress.md` — Work session log
 
+
+## Security Considerations
+
+This project requires **Administrator privileges** for symlink creation, package installation, and registry writes. Before running:
+
+1. **Read the code** — all scripts are open source and intentionally readable
+2. **Understand what runs as admin** — only `bootstrap.ps1`, `setup.ps1`, and `platform.ps1`
+3. **No remote code execution** — scripts install named packages from Chocolatey, Winget, and Cargo. No arbitrary URLs are piped to `Invoke-Expression` (except the official Chocolatey installer)
+4. **Registry changes are scoped** — only `HKCU\Console` (theme) and `HKCU\Command Processor` (CMD autorun)
+5. **PSScriptAnalyzer** — not enforced as a pre-commit hook due to intentional use of `Write-Host` in interactive scripts, but recommended for contributors
+
+### Developer Mode Alternative
+
+Windows 10 (1703+) supports symlinks without admin if Developer Mode is enabled:
+```powershell
+# Settings → For Developers → Developer Mode: On
+# Then bootstrap.ps1 can run without elevation for symlink operations
+```
+
+This does not remove the admin requirement for package installation.
+
 ## License
 
 Personal dotfiles. Use as inspiration.
