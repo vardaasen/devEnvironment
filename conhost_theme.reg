@@ -1,0 +1,31 @@
+Windows Registry Editor Version 5.00
+
+; --- GLOBAL SETTINGS ---
+[HKEY_CURRENT_USER\Console]
+
+"FaceName"="Consolas"
+"FontSize"=dword:00100000
+"QuickEdit"=dword:00000001
+"CursorSize"=dword:00000019
+"WindowSize"=dword:001e0078
+"ScreenBufferSize"=dword:23290078
+
+"ColorTable00"=dword:00000000
+"ColorTable01"=dword:0000ff00
+"ColorTable02"=dword:0000ff00
+"ColorTable03"=dword:0000ff00
+"ColorTable04"=dword:0000ff00
+"ColorTable05"=dword:0000ff00
+"ColorTable06"=dword:0000ff00
+"ColorTable07"=dword:0000ff00
+"ColorTable08"=dword:0000ff00
+"ColorTable09"=dword:0000ff00
+"ColorTable10"=dword:0000ff00
+"ColorTable11"=dword:0000ff00
+"ColorTable12"=dword:0000ff00
+"ColorTable13"=dword:0000ff00
+"ColorTable14"=dword:0000ff00
+"ColorTable15"=dword:0000ff00
+
+"ScreenColors"=dword:00000002
+"CursorColor"=dword:00ffffff

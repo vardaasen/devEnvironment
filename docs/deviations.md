@@ -256,3 +256,19 @@ $setupIndex = $BootstrapContent.IndexOf('PHASE 1')      # Unik seksjon
 
 - `IndexOf`-baserte rekkefølgetester krever unike søkestrenger
 - Seksjonskommentarer (`PHASE 1`, `ENFORCE XDG`) er sikrere ankerpunkter enn kode-fragmenter som kan forekomme flere steder
+
+---
+
+## AVV-009: Windows Terminal settings.json er JSONC, ikke standard JSON
+
+**Dato:** 2025-02-09
+**Fase:** Testing / Konfigurasjon
+**Alvorlighet:** Lav
+
+### Beskrivelse
+
+Windows Terminal bruker JSONC (JSON with Comments) som inkluderer `//`-kommentarer og `$`-prefiks nøkler (`$schema`, `$help`). `ConvertFrom-Json` i PowerShell støtter ikke dette.
+
+### Løsning
+
+Erstattet JSON-parsing med innholdsvalidering via regex (`"profiles"`, `"schemes"`, `"defaultProfile"`).
