@@ -146,10 +146,116 @@
 
 ### Uløst / neste økt
 
-- [ ] Lande på miljøstrategi (native/WSL2/devcontainer/nix) — ADR-006
-- [ ] Implementere automatisert identitetsflyt (`Initialize-DevIdentity`)
-- [ ] Integrere `Set-GitIdentity` i PowerShell-profilen
-- [ ] Vurdere vault-integrasjon (1Password/Bitwarden/ProtonPass)
-- [ ] Oppdateringsnotifikasjoner — velge tilnærming fra ADR-009
+- [x] ~~Lande på miljøstrategi (native/WSL2/devcontainer/nix)~~ → **Vedtatt: Go cross-platform (ADR-011)**
+- [ ] Implementere automatisert identitetsflyt i Go (`devenv identity`)
 - [ ] Neovim-konfigurasjon (init.lua med Neoment, etc.)
 - [ ] testResults.xml bør legges til .gitignore
+
+---
+
+## Økt 3 — 2026-02-11
+
+### Strategisk pivot: Cross-platform Go-implementasjon
+
+**Beslutning:** Refaktorere fra PowerShell til Go for cross-platform support
+
+**Begrunnelse:**
+- Windows-only PowerShell → bash portering ville gitt dobbelt vedlikeholdsarbeid
+- Go gir én kodebase for Windows/macOS/Linux med statisk kompilert binær
+- Raskere kjøretid, enklere distribusjon, bedre testing
+
+### ADR oppdateringer
+
+- [x] **ADR-006:** Markert som SUPERSEDED by ADR-011
+- [x] **ADR-007:** Vedtatt hybrid interaktiv identity strategi
+  - Interaktiv prompt med Bubbletea TUI
+  - Progressiv sikkerhet (3 nivåer: .env, SSH signing, vault)
+  - Per-repo konfigurasjon (aldri global)
+- [x] **ADR-008:** Vedtatt container strategi
+  - macOS: OrbStack (anbefalt) / Docker Desktop (fallback)
+  - Windows: Docker Desktop + WSL2 / Podman Desktop
+  - Linux: Docker Engine / Podman
+  - Nested virt blokkert: Remote Docker via SSH
+- [x] **ADR-011:** NEW — Go-basert cross-platform arkitektur
+  - 5-ukers implementasjonsplan
+  - CLI kommandoer: `devenv install/identity/setup/container/status`
+  - Migrering: v1.0.0 (PowerShell) → v2.0.0 (Go)
+
+### Dokumentasjonstemplates opprettet
+
+Alle templates lagt i `templates/` for gjenbruk:
+
+- [x] **ADR-TEMPLATE.md** — Architecture Decision Records
+  - Kontekst, beslutning, alternativer, konsekvenser, implementasjon
+- [x] **AVV-TEMPLATE.md** — Avvik/deviations
+  - Symptom, rotårsak, løsning, læring, reproduksjon
+- [x] **PROGRESS-TEMPLATE.md** — Session logging
+  - Fullført, pågående, blokkere, neste prioriteringer
+- [x] **GIT-COMMIT-TEMPLATE.md** — Commit conventions
+  - Type prefixes (feat/fix/docs/etc), format, eksempler, anti-patterns
+- [x] **DOCS-TEMPLATE.md** — Generell dokumentasjon
+  - Oversikt, forutsetninger, troubleshooting, referanser
+
+### v1.0.0 Release — PowerShell Baseline
+
+**Tag:** `v1.0.0` (signert ✓)
+**Commit:** `6841609` (signert ✓)
+**Branch:** `master` (stabil Windows-versjon)
+
+**Release highlights:**
+- [x] RELEASE_NOTES.md opprettet med komplett dokumentasjon
+- [x] 4-layer provisioning arkitektur fullført
+- [x] 14 Pester test suites, 223+ tester
+- [x] 11 ADRer dokumentert (ADR-001 til ADR-011)
+- [x] 10 AVVer med læring
+- [x] Komplett template-bibliotek
+
+**Branching strategi:**
+- [x] `master` — Stabil PowerShell v1.0.0 (produksjonsklar)
+- [x] `go-port` — Ny branch for Go v2.0.0 utvikling
+
+### Git operasjoner
+
+- [x] Commit signert med SSH
+- [x] Tag `v1.0.0` signert og annotated
+- [x] Pushet til origin: master, v1.0.0, go-port
+- [x] Release notes publisert
+
+### Implementasjonsplan dokumentert (ADR-011)
+
+**Fase 1 (Uke 1):** Go foundation, Cobra CLI, platform abstraction
+**Fase 2 (Uke 2):** Identity med Bubbletea TUI, SSH agent integration
+**Fase 3 (Uke 3):** Container detection, XDG symlinks
+**Fase 4 (Uke 4):** Go testing, CI (Windows/macOS/Linux)
+**Fase 5 (Uke 5):** GoReleaser, distribusjon (Homebrew, Winget)
+
+### Suksesskriterier definert
+
+**Funksjonelle:**
+- Feature parity med PowerShell v1.0.0
+- Windows 11, macOS Sequoia, Ubuntu 24.04
+- AMD64 og ARM64 support
+- < 10s provisioning (ekskludert downloads)
+
+**Ikke-funksjonelle:**
+- Binær < 20MB
+- Test coverage > 80%
+- CI grønn på alle platformer
+
+**Distribusjon:**
+- `brew install vardaasen/tap/devenv`
+- `winget install vardaasen.devenv`
+- GitHub Releases med 6 platformer
+
+### Neste økt (økt 4)
+
+**Fokus:** Start Go-implementasjon i `go-port` branch
+
+**Prioriteringer:**
+1. [ ] `go mod init github.com/vardaasen/devEnvironment`
+2. [ ] Cobra CLI setup med grunnleggende kommandoer
+3. [ ] Platform detection (Windows/macOS/Linux)
+4. [ ] Package manager abstractions (winget/brew/apt/cargo)
+5. [ ] Tool manifest YAML parser
+
+**Referanse:** [ADR-011 Fase 1](decisions.md#adr-011-go-basert-cross-platform-arkitektur)
