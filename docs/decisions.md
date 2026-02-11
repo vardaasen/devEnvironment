@@ -87,7 +87,7 @@ Dette er en kjent angrepsflate for dotfiles-prosjekter generelt.
 ## ADR-006: Secrets and Identity Management Strategy
 
 **Dato:** 2025-02-10
-**Status:** Under vurdering
+**Status:** SUPERSEDED by ADR-011 (Go-basert arkitektur)
 
 ### Kontekst
 
@@ -198,10 +198,11 @@ Host github-work
 
 ---
 
-## ADR-006: Identitets- og autentiseringsarkitektur
+## ADR-007: Identitets- og autentiseringsarkitektur
 
 **Dato:** 2025-02-10
-**Status:** Under utredning
+**Oppdatert:** 2026-02-11
+**Status:** Vedtatt — Hybrid interaktiv tilnærming
 
 ### Kjerneinnsikt
 
@@ -262,16 +263,29 @@ Vault erstatter ikke OAuth-flyten — den sikrer nøklene *etter* at de er gener
 
 ### Beslutning
 
-Utsatt. Implementerer ikke secrets-håndtering i dette prosjektet ennå. Trenger å lande på miljøstrategi først, da den påvirker resten av designet.
+**Hybrid tilnærming med interaktiv prompt:**
 
-Grunnleggende `.env.template` og onboarding-dokumentasjon kan legges til som midlertidig løsning uten å låse arkitekturen.
+1. **Interaktivitet først** — ved `devenv identity` kommando, spør brukeren om de vil:
+   - Bruke eksisterende `.env` (hvis den finnes)
+   - Oppgi identitet interaktivt
+   - Automatisk deteksjon via `$env:USERNAME` (hvis samsvarer med forge-bruker)
+
+2. **Progressiv sikkerhet** — tre nivåer:
+   - **Nivå 1:** `.env` med git identity (gitignored)
+   - **Nivå 2:** SSH-nøkler med passphrase, signering aktivert
+   - **Nivå 3:** Vault-basert SSH agent (1Password/Bitwarden/ProtonPass)
+
+3. **Per-repo konfigurasjon** — alltid `git config --local`, aldri `--global`
+
+**Implementasjon:** Se ADR-011 for Go-basert CLI med Bubbletea TUI.
 
 ---
 
 ## ADR-008: Container- og virtualiseringsstrategi
 
 **Dato:** 2025-02-10
-**Status:** Under utredning
+**Oppdatert:** 2026-02-11
+**Status:** Vedtatt — OrbStack (macOS) / Podman (cross-platform)
 
 ### Kontekst
 
@@ -347,11 +361,26 @@ Docker krever en hypervisor (Hyper-V / KVM). Når Windows kjører som gjest i Pa
 
 ### Beslutning
 
-Utsatt. Krever klargjøring av:
-1. Primært kjøremiljø (native vs Parallels vs VPS)
-2. Om devcontainers skal erstatte eller supplere native oppsett
-3. Lisensmodell (Docker Desktop vs alternativer)
-4. Nettverk og TLS for remote Docker
+**Prioritert container runtime:**
+
+| Platform | Native Virt | Anbefalt Runtime | Fallback |
+|----------|-------------|------------------|----------|
+| macOS (native) | Ja | **OrbStack** | Docker Desktop |
+| Windows (native) | Ja | Docker Desktop + WSL2 | Podman Desktop |
+| Linux | Ja | Docker Engine | **Podman** |
+| VM uten nested virt (Parallels/VMware) | Nei | **Remote Docker via SSH** | N/A |
+
+**Begrunnelse:**
+- **OrbStack** (macOS): Raskest, lavest ressursbruk, beste brukeropplevelse
+- **Podman** (cross-platform): Rootless, daemonless, gratis, bedre sikkerhet
+- **Remote Docker**: For miljøer uten nested virtualization support
+
+**Implementasjon:** Go-basert deteksjon av nested virt capability (se ADR-011).
+
+**Sikkerhet:**
+- Remote Docker kun via SSH tunnel (aldri ukryptert TCP)
+- TLS-sertifikater for produksjon
+- Devcontainers med `remoteUser` og `--userns`
 
 ---
 
@@ -440,3 +469,239 @@ To installasjonsmetoder tilbys via interaktivt valg i scriptet:
 - magarcia: "Why I Switched from Bun to Deno for Claude Code Skills" (jan 2026)
 - Anthropic: Native installer announcement (okt 2025)
 - claudefa.st: "Claude Code Native Installer: Skip Node.js Entirely"
+
+---
+
+## ADR-011: Go-basert cross-platform arkitektur
+
+**Dato:** 2026-02-11
+**Status:** Vedtatt — Arkitektonisk pivot
+
+### Kontekst
+
+devEnvironment-prosjektet ble opprettet som et Windows-first PowerShell-basert dotfiles- og utviklermiljø. Etter to økter med stabil Windows-implementasjon (4 layers, 14 test suites, 223+ tester, komplett dokumentasjon), oppstod behovet for cross-platform support (macOS, Linux).
+
+**Nåværende tilstand (v1.0.0-rc):**
+- 100% PowerShell-basert (scripts/, .config/powershell/modules/)
+- Pester v5+ testing framework
+- Windows-spesifikke operasjoner (symlinks, registry, fonts)
+- Modent og velfungerende på Windows
+
+**Utfordring:**
+Å portere PowerShell-scripts til bash for macOS/Linux ville gi:
+- Dobbelt vedlikeholdsarbeid (PowerShell + bash)
+- Ulike package manager APIs (winget vs brew vs apt)
+- Plattformspesifikk kompleksitet i hvert script
+- Vanskelig testing (Pester for PS, bats for bash)
+
+### Alternativer vurdert
+
+#### A) PowerShell Core (cross-platform)
+
+**Fordeler:** Beholder eksisterende kode, PS Core fungerer på macOS/Linux
+
+**Ulemper:**
+- PowerShell er uvanlig på macOS/Linux (ikke i standard developer toolkit)
+- Package manager abstraksjon fortsatt nødvendig
+- Større runtime footprint (~200MB)
+- Kulturelt mismatch (bash/zsh er normen på Unix)
+
+**Hvorfor avvist:** Påtvinger Windows-sentrisk verktøy på Unix-brukere
+
+---
+
+#### B) Bash + PowerShell parallelt
+
+**Fordeler:** Native på hver platform, følger konvensjoner
+
+**Ulemper:**
+- Dobbelt vedlikeholdsarbeid (hver feature skrevet to ganger)
+- Potensielt divergerende funksjonalitet
+- To testframeworks (Pester + bats)
+- Kompleks release-prosess
+
+**Hvorfor avvist:** Ikke skalerbart, høy vedlikeholdskostnad
+
+---
+
+#### C) Go (kompilert, cross-platform)
+
+**Fordeler:**
+- ✅ Én kodebase, alle platformer (Windows/macOS/Linux, AMD64/ARM64)
+- ✅ Statisk kompilert binær (ingen runtime-avhengigheter)
+- ✅ Raskere kjøretid enn interpretert PowerShell/bash
+- ✅ Kraftig standard library (os, exec, filepath)
+- ✅ Etablerte CLI-biblioteker (Cobra, Bubbletea)
+- ✅ Cross-compilation triviell (`GOOS=linux go build`)
+- ✅ Enklere distribusjon (GitHub Releases, Homebrew, Winget)
+- ✅ Type safety og compile-time sjekker
+- ✅ Enkelt å teste (Go testing standard library)
+
+**Ulemper:**
+- ⚠️ Omskriving av ~2000 linjer PowerShell
+- ⚠️ Må lære Go konvensjoner
+- ⚠️ Mister Pester (men får Go testing, som er bedre)
+
+**Hvorfor valgt:** Best langsiktige trade-off mellom vedlikeholdbarhet og cross-platform support
+
+---
+
+### Beslutning
+
+**Refaktorer devEnvironment til Go-basert CLI verktøy (`devenv`).**
+
+**Arkitektur:**
+```
+devenv (Go binary)
+├── cmd/devenv/main.go                 # Entrypoint
+├── internal/
+│   ├── platform/                      # OS abstraksjon (Windows/macOS/Linux)
+│   ├── provisioner/                   # Package manager wrappers (winget/brew/apt/cargo)
+│   ├── identity/                      # Git/SSH setup med interaktiv TUI
+│   ├── container/                     # Docker/OrbStack/Podman detection
+│   └── symlink/                       # XDG symlink logic
+├── configs/tools.yaml                 # Deklarativ tool manifest
+└── .config/                           # Beholdes uendret (PowerShell, Starship, etc.)
+```
+
+**CLI kommandoer:**
+```bash
+devenv install [--upgrade]             # Installer alle verktøy fra manifest
+devenv identity [--non-interactive]    # Setup Git/SSH med TUI eller .env
+devenv setup                           # Opprett XDG symlinks
+devenv container [--runtime=orbstack]  # Installer container runtime
+devenv status                          # Vis miljøstatus
+```
+
+**Interaktivitet:**
+- Bubbletea TUI for `devenv identity` (erstatter .env-prompt)
+- Valgfri `--non-interactive` flag for CI/scripting
+
+**Konfigurasjon:**
+- YAML manifest (`configs/tools.yaml`) for tool lists
+- Samme `.config/` struktur (ingen endringer for brukere)
+
+---
+
+### Migrasjonsstrategi
+
+**v1.0.0 (PowerShell baseline):**
+- Tag nåværende PowerShell implementasjon som `v1.0.0`
+- Release notes: "Stable Windows implementation, Go rewrite in progress"
+- Brukere kan fortsette å bruke PowerShell-versjon
+
+**v2.0.0-alpha (Go port):**
+- Utvikles i `go-port` branch
+- Parallelldrift: både PowerShell og Go tilgjengelig
+- PowerShell scripts får deprecation warning
+
+**v2.0.0 (Go stable):**
+- Go versjon blir standard
+- PowerShell scripts flyttes til `legacy/` folder
+- Breaking change: CLI API endret fra `.ps1` scripts til `devenv` subcommands
+
+**Backward compatibility:**
+- `.config/` structure uendret (100% kompatibel)
+- Brukere kan migrere når de er klare
+
+---
+
+### Implementasjonsplan
+
+**Fase 1: Foundation (Uke 1)**
+- [ ] Go module init (`github.com/vardaasen/devenv`)
+- [ ] Cobra CLI setup
+- [ ] Platform abstraction (`internal/platform/`)
+- [ ] Package manager interfaces (`internal/provisioner/`)
+
+**Fase 2: Core Features (Uke 2)**
+- [ ] Tool installation fra YAML manifest
+- [ ] Identity setup med Bubbletea TUI
+- [ ] SSH agent integration (1Password/Bitwarden)
+
+**Fase 3: Container & Symlinks (Uke 3)**
+- [ ] Nested virt detection
+- [ ] OrbStack/Podman installation
+- [ ] XDG symlink creation
+
+**Fase 4: Testing & Docs (Uke 4)**
+- [ ] Go testing suite (erstatter Pester)
+- [ ] CI pipeline (Windows/macOS/Linux)
+- [ ] Dokumentasjon oppdatering
+
+**Fase 5: Distribusjon (Uke 5)**
+- [ ] GoReleaser setup
+- [ ] GitHub Releases (6 platformer: windows/darwin/linux × amd64/arm64)
+- [ ] Homebrew tap
+- [ ] Winget manifest
+
+---
+
+### Konsekvenser
+
+#### Positive
+- Cross-platform support uten dobbelt vedlikeholdsarbeid
+- Raskere kjøretid (~10x speedup for parsing og tool checks)
+- Enklere distribusjon (statisk binær)
+- Bedre type safety (compile-time feilhåndtering)
+- Moderne TUI med Bubbletea (bedre UX enn PowerShell-prompts)
+
+#### Negative
+- Omskriving tar tid (~5 uker estimat)
+- Brukere av PowerShell-versjon må migrere (men kan utsette)
+- Go learning curve for bidragsytere
+
+#### Nøytrale
+- Test framework bytter fra Pester til Go testing
+- CLI API endrer fra `.\scripts\bootstrap.ps1` til `devenv install`
+- Konfigurasjon fra PowerShell-tables til YAML
+
+---
+
+### Suksesskriterier
+
+**Funksjonelle:**
+- ✅ Feature parity med PowerShell v1.0.0
+- ✅ Fungerer på Windows 11, macOS Sequoia, Ubuntu 24.04
+- ✅ Støtter AMD64 og ARM64
+- ✅ < 10s for full provisioning (ekskludert downloads)
+
+**Ikke-funksjonelle:**
+- ✅ Binær < 20MB
+- ✅ Test coverage > 80%
+- ✅ Dokumentasjon fullstendig oppdatert
+- ✅ CI pipeline grønn på alle platformer
+
+**Distribusjon:**
+- ✅ GitHub Releases automatisert
+- ✅ `brew install vardaasen/tap/devenv` fungerer
+- ✅ `winget install vardaasen.devenv` fungerer
+
+---
+
+### Referanser
+
+- **Relaterte ADRer:**
+  - ADR-007: Identity strategi (implementeres med Bubbletea)
+  - ADR-008: Container strategi (implementeres med Go detection)
+  - ADR-010: Deno over Node.js (uendret)
+
+- **Tekniske ressurser:**
+  - [Cobra CLI framework](https://github.com/spf13/cobra)
+  - [Bubbletea TUI library](https://github.com/charmbracelet/bubbletea)
+  - [GoReleaser](https://goreleaser.com/)
+
+- **Eksempler på lignende prosjekter:**
+  - [chezmoi](https://github.com/twpayne/chezmoi) — dotfiles manager i Go
+  - [mise](https://github.com/jdx/mise) — dev tools installer i Rust
+  - [devbox](https://github.com/jetpack-io/devbox) — Nix-basert, Go wrapper
+
+---
+
+### Historikk
+
+- **2026-02-11:** Opprettet (status: VEDTATT)
+- **2026-02-11:** Brukervalg for cross-platform fra start
+  - Container: OrbStack/Podman prioritert
+  - Identity: Hybrid med interaktiv TUI
+  - Updates: Utsatt (manuell provision.ps1 -Upgrade tilstrekkelig)
