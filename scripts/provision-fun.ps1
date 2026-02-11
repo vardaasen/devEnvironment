@@ -8,20 +8,32 @@ param( [switch]$Upgrade )
 function Test-Command { param([string]$Name) return [bool](Get-Command $Name -ErrorAction SilentlyContinue) }
 
 # ==============================================================================
-# 1. LLVM / CLANG (Freenet, C/C++ tooling)
+# 1. RUNTIMES
 # ==============================================================================
-Write-Host "--- 1. LLVM / CLANG ---" -ForegroundColor Cyan
+Write-Host "--- 1. RUNTIMES ---" -ForegroundColor Cyan
 
-if (Test-Command "clang") {
-    if ($Upgrade) {
-        Write-Host " [Up] Checking update for LLVM..." -ForegroundColor Magenta
-        winget upgrade LLVM.LLVM --silent --accept-package-agreements --accept-source-agreements
+$Runtimes = @(
+    @{ Cmd = "clang"; Id = "LLVM.LLVM" }
+    @{ Cmd = "deno";  Id = "DenoLand.Deno" }
+)
+
+foreach ($app in $Runtimes) {
+    if (Test-Command $app.Cmd) {
+        if ($Upgrade) {
+            Write-Host " [Up] Checking update for $($app.Id)..." -ForegroundColor Magenta
+            winget upgrade $app.Id --silent --accept-package-agreements --accept-source-agreements
+        } else {
+            Write-Host " [OK] $($app.Cmd) found." -ForegroundColor DarkGray
+        }
     } else {
-        Write-Host " [OK] clang found." -ForegroundColor DarkGray
+        Write-Host " [..] Installing $($app.Id)..." -ForegroundColor Yellow
+        winget install $app.Id --silent --accept-package-agreements --accept-source-agreements
     }
-} else {
-    Write-Host " [..] Installing LLVM..." -ForegroundColor Yellow
-    winget install LLVM.LLVM --silent --accept-package-agreements --accept-source-agreements
+}
+
+# PATH refresh for LLVM
+foreach ($p in @("$env:ProgramFiles\LLVM\bin", "${env:ProgramFiles(x86)}\LLVM\bin")) {
+    if ((Test-Path $p) -and ($env:PATH -notlike "*$p*")) { $env:PATH = "$p;$env:PATH" }
 }
 
 # ==============================================================================
@@ -29,51 +41,30 @@ if (Test-Command "clang") {
 # ==============================================================================
 Write-Host "--- 2. CONTAINER RUNTIME ---" -ForegroundColor Cyan
 
-# Detect nested virtualization capability
-$NestedVirt = $false
+$NestedVirt = $true
 try {
-    $hyperv = Get-CimInstance -ClassName Win32_ComputerSystem -ErrorAction SilentlyContinue
-    if ($hyperv.HypervisorPresent) {
-        # Check if we're in a VM (Parallels, Hyper-V, etc.)
-        $model = $hyperv.Model
-        if ($model -match "Parallels|Virtual|VMware") {
-            Write-Host " [Warn] Running inside VM ($model) — nested virtualization may be unavailable" -ForegroundColor Yellow
-            Write-Host "        Consider remote Docker: set DOCKER_HOST=tcp://<host>:2375" -ForegroundColor Yellow
-            Write-Host "        Or use SSH tunnel: DOCKER_HOST=ssh://user@host" -ForegroundColor Yellow
-            Write-Host "        macOS host: OrbStack (recommended) or Colima" -ForegroundColor Yellow
-        } else {
-            $NestedVirt = $true
-        }
-    } else {
-        $NestedVirt = $true
+    $sys = Get-CimInstance Win32_ComputerSystem -ErrorAction SilentlyContinue
+    if ($sys.Model -match "Parallels|Virtual|VMware") {
+        $NestedVirt = $false
+        Write-Host " [Warn] VM detected ($($sys.Model)) — nested virtualization likely unavailable" -ForegroundColor Yellow
+        Write-Host "        Remote Docker: DOCKER_HOST=ssh://user@host (recommended)" -ForegroundColor DarkGray
+        Write-Host "        macOS host: OrbStack or Colima" -ForegroundColor DarkGray
     }
-} catch {
-    Write-Host " [Warn] Could not detect virtualization status" -ForegroundColor Yellow
-}
+} catch { Write-Host " [Warn] Could not detect virtualization status" -ForegroundColor Yellow }
 
-# Docker Desktop (only if nested virt is available or native)
 if (Test-Command "docker") {
     if ($Upgrade) {
-        Write-Host " [Up] Checking update for Docker Desktop..." -ForegroundColor Magenta
+        Write-Host " [Up] Checking update for Docker..." -ForegroundColor Magenta
         winget upgrade Docker.DockerDesktop --silent --accept-package-agreements --accept-source-agreements
     } else {
-        Write-Host " [OK] Docker found." -ForegroundColor DarkGray
+        Write-Host " [OK] docker found." -ForegroundColor DarkGray
     }
 } elseif ($NestedVirt) {
     Write-Host " [..] Installing Docker Desktop..." -ForegroundColor Yellow
-    Write-Host "      License: Free for personal use and small business (<250 employees, <$10M)" -ForegroundColor DarkGray
     winget install Docker.DockerDesktop --silent --accept-package-agreements --accept-source-agreements
 } else {
-    Write-Host " [Skip] Docker Desktop skipped (no nested virtualization)" -ForegroundColor Yellow
-    Write-Host "        Configure DOCKER_HOST to point to a remote Docker daemon" -ForegroundColor Yellow
-    Write-Host "        Options for remote host:" -ForegroundColor DarkGray
-    Write-Host "          macOS: OrbStack, Colima, Lima, Docker Desktop" -ForegroundColor DarkGray
-    Write-Host "          Linux: Docker Engine, Podman" -ForegroundColor DarkGray
-    Write-Host "          VPS:   Docker Engine over SSH" -ForegroundColor DarkGray
-    Write-Host ""
-    Write-Host "        Secure connection (never expose Docker socket without TLS):" -ForegroundColor Red
-    Write-Host "          DOCKER_HOST=ssh://user@host        (recommended)" -ForegroundColor DarkGray
-    Write-Host "          DOCKER_HOST=tcp://host:2376 + TLS  (advanced)" -ForegroundColor DarkGray
+    Write-Host " [Skip] Docker Desktop — no nested virtualization" -ForegroundColor Yellow
+    Write-Host "        Set DOCKER_HOST to a remote daemon (never without TLS)" -ForegroundColor Red
 }
 
 # ==============================================================================
@@ -81,73 +72,151 @@ if (Test-Command "docker") {
 # ==============================================================================
 Write-Host "--- 3. AI TOOLING ---" -ForegroundColor Cyan
 
-# A. Claude Code (requires Node.js 18+)
+# A. Claude Code
 if (Test-Command "claude") {
     if ($Upgrade) {
         Write-Host " [Up] Updating claude-code..." -ForegroundColor Magenta
-        npm update -g @anthropic-ai/claude-code
+        # Native install self-updates; winget needs manual upgrade
+        if (winget list --id Anthropic.ClaudeCode 2>$null | Select-String "Anthropic") {
+            winget upgrade Anthropic.ClaudeCode --silent --accept-package-agreements --accept-source-agreements
+        } else {
+            claude update
+        }
     } else {
         Write-Host " [OK] claude-code found." -ForegroundColor DarkGray
     }
 } else {
-    if (Test-Command "node") {
-        $nodeVer = (node --version) -replace 'v',''
-        if ([version]$nodeVer -ge [version]"18.0.0") {
-            Write-Host " [..] Installing claude-code..." -ForegroundColor Yellow
-            npm install -g @anthropic-ai/claude-code
+    Write-Host ""
+    Write-Host " Claude Code installation method:" -ForegroundColor White
+    Write-Host "   [1] Native installer (auto-updates, recommended)" -ForegroundColor Cyan
+    Write-Host "   [2] Winget (manual updates, better control)" -ForegroundColor Cyan
+    Write-Host "   [3] Skip" -ForegroundColor DarkGray
+    Write-Host ""
+    $choice = Read-Host "   Select (1/2/3)"
+    switch ($choice) {
+        "1" {
+            Write-Host " [..] Installing claude-code (native)..." -ForegroundColor Yellow
+            irm https://claude.ai/install.ps1 | iex
+        }
+        "2" {
+            Write-Host " [..] Installing claude-code (winget)..." -ForegroundColor Yellow
+            winget install Anthropic.ClaudeCode --silent --accept-package-agreements --accept-source-agreements
+        }
+        default {
+            Write-Host " [Skip] claude-code" -ForegroundColor DarkGray
+        }
+    }
+}
+
+# B. Winget AI tools
+$AiWinget = @(
+    @{ Cmd = "warp";   Id = "Warp.Warp";    Name = "Warp Terminal" }
+    @{ Cmd = "dagger"; Id = "Dagger.Dagger"; Name = "Dagger"; Requires = "docker" }
+)
+
+foreach ($app in $AiWinget) {
+    if ($app.Requires -and -not (Test-Command $app.Requires)) {
+        Write-Host " [Skip] $($app.Name) requires $($app.Requires)" -ForegroundColor Yellow
+        continue
+    }
+    if (Test-Command $app.Cmd) {
+        if ($Upgrade) {
+            Write-Host " [Up] Checking update for $($app.Name)..." -ForegroundColor Magenta
+            winget upgrade $app.Id --silent --accept-package-agreements --accept-source-agreements
         } else {
-            Write-Host " [Skip] claude-code requires Node.js 18+ (found $nodeVer)" -ForegroundColor Yellow
+            Write-Host " [OK] $($app.Cmd) found." -ForegroundColor DarkGray
         }
     } else {
-        Write-Host " [Skip] claude-code requires Node.js — install via:" -ForegroundColor Yellow
-        Write-Host "        winget install OpenJS.NodeJS.LTS" -ForegroundColor DarkGray
-    }
-}
-
-# B. Warp Terminal (MCP-native terminal)
-$WarpInstalled = winget list --id dev.warp.Warp 2>$null | Select-String "Warp"
-if ($WarpInstalled) {
-    if ($Upgrade) {
-        Write-Host " [Up] Checking update for Warp..." -ForegroundColor Magenta
-        winget upgrade dev.warp.Warp --silent --accept-package-agreements --accept-source-agreements
-    } else {
-        Write-Host " [OK] Warp found." -ForegroundColor DarkGray
-    }
-} else {
-    Write-Host " [..] Installing Warp Terminal..." -ForegroundColor Yellow
-    winget install dev.warp.Warp --silent --accept-package-agreements --accept-source-agreements
-}
-
-# C. Dagger (CI/CD engine, requires Docker)
-if (Test-Command "dagger") {
-    if ($Upgrade) {
-        Write-Host " [Up] Updating Dagger..." -ForegroundColor Magenta
-        winget upgrade Dagger.Dagger --silent --accept-package-agreements --accept-source-agreements
-    } else {
-        Write-Host " [OK] Dagger found." -ForegroundColor DarkGray
-    }
-} else {
-    if (Test-Command "docker") {
-        Write-Host " [..] Installing Dagger..." -ForegroundColor Yellow
-        winget install Dagger.Dagger --silent --accept-package-agreements --accept-source-agreements
-    } else {
-        Write-Host " [Skip] Dagger requires Docker — install Docker first" -ForegroundColor Yellow
+        Write-Host " [..] Installing $($app.Name)..." -ForegroundColor Yellow
+        winget install $app.Id --silent --accept-package-agreements --accept-source-agreements
     }
 }
 
 # ==============================================================================
-# 4. IDEs AND EDITORS (Opinionated)
+# 4. IDEs AND EDITORS
 # ==============================================================================
 Write-Host "--- 4. IDEs AND EDITORS ---" -ForegroundColor Cyan
 
-$IdeApps = @(
-    @{ Cmd = "";       Id = "JetBrains.Toolbox";              Name = "JetBrains Toolbox" }
-    @{ Cmd = "code";   Id = "Microsoft.VisualStudioCode";     Name = "VS Code" }
-    @{ Cmd = "cursor"; Id = "Anysphere.Cursor";               Name = "Cursor" }
+$Editors = @(
+    @{ Cmd = "code";   Id = "Microsoft.VisualStudioCode"; Name = "VS Code" }
+    @{ Cmd = "cursor"; Id = "Anysphere.Cursor";           Name = "Cursor" }
 )
 
-foreach ($app in $IdeApps) {
-    if ($app.Cmd -and (Test-Command $app.Cmd)) {
+foreach ($app in $Editors) {
+    if (Test-Command $app.Cmd) {
+        if ($Upgrade) {
+            Write-Host " [Up] Checking update for $($app.Name)..." -ForegroundColor Magenta
+            winget upgrade $app.Id --silent --accept-package-agreements --accept-source-agreements
+        } else {
+            Write-Host " [OK] $($app.Cmd) found." -ForegroundColor DarkGray
+        }
+    } else {
+        Write-Host " [..] Installing $($app.Name)..." -ForegroundColor Yellow
+        winget install $app.Id --silent --accept-package-agreements --accept-source-agreements
+    }
+}
+
+# JetBrains Toolbox (no CLI binary)
+$JbInstalled = winget list --id JetBrains.Toolbox 2>$null | Select-String "JetBrains"
+if ($JbInstalled) {
+    if ($Upgrade) {
+        Write-Host " [Up] Checking update for JetBrains Toolbox..." -ForegroundColor Magenta
+        winget upgrade JetBrains.Toolbox --silent --accept-package-agreements --accept-source-agreements
+    } else {
+        Write-Host " [OK] JetBrains Toolbox found." -ForegroundColor DarkGray
+    }
+} else {
+    Write-Host " [..] Installing JetBrains Toolbox..." -ForegroundColor Yellow
+    winget install JetBrains.Toolbox --silent --accept-package-agreements --accept-source-agreements
+}
+Write-Host "        Recommended: PyCharm, GoLand, Rider, CLion" -ForegroundColor DarkGray
+
+# IDE Extensions reminder
+Write-Host ""
+Write-Host " [Info] Recommended extensions:" -ForegroundColor DarkGray
+Write-Host "        VS Code:  claude-dev (Cline), Continue, GitHub Copilot" -ForegroundColor DarkGray
+Write-Host "        Cursor:   Ships with built-in AI (configure API keys in settings)" -ForegroundColor DarkGray
+Write-Host "        JetBrains: AI Assistant, GitHub Copilot (via Toolbox plugins)" -ForegroundColor DarkGray
+
+# ==============================================================================
+# 5. CARGO CRATES
+# ==============================================================================
+Write-Host "--- 5. CARGO CRATES ---" -ForegroundColor Cyan
+
+$FunCrates = @(
+    @{ Crate = "iamb"; Bin = "iamb" }
+)
+
+if (Test-Command "cargo") {
+    foreach ($c in $FunCrates) {
+        if (Test-Command $c.Bin) {
+            if ($Upgrade) {
+                Write-Host " [Up] Updating $($c.Crate)..." -ForegroundColor Magenta
+                cargo install $c.Crate --locked
+            } else {
+                Write-Host " [OK] $($c.Bin) found." -ForegroundColor DarkGray
+            }
+        } else {
+            Write-Host " [..] Installing $($c.Crate)..." -ForegroundColor Yellow
+            cargo install $c.Crate --locked
+        }
+    }
+} else {
+    Write-Host " [Skip] Cargo not found — run platform.ps1 first" -ForegroundColor Yellow
+}
+
+# ==============================================================================
+# 6. WINGET APPS (Communication & Media)
+# ==============================================================================
+Write-Host "--- 6. APPS ---" -ForegroundColor Cyan
+
+$FunWinget = @(
+    @{ Cmd = "cinny"; Id = "cinnyapp.cinny-desktop"; Name = "Cinny (Matrix)" }
+)
+
+foreach ($app in $FunWinget) {
+    $installed = winget list --id $app.Id 2>$null | Select-String $app.Id
+    if ($installed) {
         if ($Upgrade) {
             Write-Host " [Up] Checking update for $($app.Name)..." -ForegroundColor Magenta
             winget upgrade $app.Id --silent --accept-package-agreements --accept-source-agreements
@@ -155,71 +224,47 @@ foreach ($app in $IdeApps) {
             Write-Host " [OK] $($app.Name) found." -ForegroundColor DarkGray
         }
     } else {
-        if (-not $app.Cmd) {
-            $installed = winget list --id $app.Id 2>$null | Select-String $app.Id
-            if ($installed) {
-                if ($Upgrade) {
-                    Write-Host " [Up] Checking update for $($app.Name)..." -ForegroundColor Magenta
-                    winget upgrade $app.Id --silent --accept-package-agreements --accept-source-agreements
-                } else {
-                    Write-Host " [OK] $($app.Name) found." -ForegroundColor DarkGray
-                }
-                continue
-            }
-        }
         Write-Host " [..] Installing $($app.Name)..." -ForegroundColor Yellow
         winget install $app.Id --silent --accept-package-agreements --accept-source-agreements
     }
 }
 
-Write-Host ""
-Write-Host " [Recommended] JetBrains IDEs (install via Toolbox):" -ForegroundColor DarkGray
-Write-Host "   - PyCharm (Python)" -ForegroundColor DarkGray
-Write-Host "   - GoLand (Go)" -ForegroundColor DarkGray
-Write-Host "   - Rider (.NET / C#)" -ForegroundColor DarkGray
-Write-Host "   - CLion (C/C++)" -ForegroundColor DarkGray
-
 # ==============================================================================
-# 5. MATRIX CLIENTS
+# 7. EXTERNAL REPOS
 # ==============================================================================
-Write-Host "--- 5. MATRIX CLIENTS ---" -ForegroundColor Cyan
+Write-Host "--- 7. EXTERNAL REPOS ---" -ForegroundColor Cyan
 
-# A. iamb (Terminal Matrix client with Vim keybindings, Rust)
-if (Test-Command "iamb") {
-    if ($Upgrade) {
-        Write-Host " [Up] Updating iamb..." -ForegroundColor Magenta
-        cargo install iamb --locked
-    } else {
-        Write-Host " [OK] iamb found." -ForegroundColor DarkGray
+$RepoRoot = Split-Path $PSScriptRoot -Parent
+$ProjectsDir = Split-Path $RepoRoot -Parent  # Sibling level
+
+$ExternalRepos = @(
+    @{
+        Name   = "resistance"
+        Url    = "https://codeberg.org/vardaasen/resistance.git"
+        Path   = "$ProjectsDir\resistance"
     }
-} else {
-    Write-Host " [..] Installing iamb via Cargo..." -ForegroundColor Yellow
-    cargo install iamb --locked
+)
+
+foreach ($repo in $ExternalRepos) {
+    if (Test-Path "$($repo.Path)\.git") {
+        if ($Upgrade) {
+            Write-Host " [Up] Pulling $($repo.Name)..." -ForegroundColor Magenta
+            git -C $repo.Path pull --quiet
+        } else {
+            Write-Host " [OK] $($repo.Name) found." -ForegroundColor DarkGray
+        }
+    } else {
+        Write-Host " [..] Cloning $($repo.Name) to $($repo.Path)..." -ForegroundColor Yellow
+        git clone $repo.Url $repo.Path
+    }
 }
 
-# B. Cinny (Desktop Matrix client)
-$CinnyInstalled = winget list --id niceredink.Cinny 2>$null | Select-String "Cinny"
-if ($CinnyInstalled) {
-    if ($Upgrade) {
-        Write-Host " [Up] Checking update for Cinny..." -ForegroundColor Magenta
-        winget upgrade niceredink.Cinny --silent --accept-package-agreements --accept-source-agreements
-    } else {
-        Write-Host " [OK] Cinny found." -ForegroundColor DarkGray
-    }
-} else {
-    Write-Host " [..] Installing Cinny..." -ForegroundColor Yellow
-    winget install niceredink.Cinny --silent --accept-package-agreements --accept-source-agreements
-}
-
-# C. Neoment (Neovim plugin — manual setup required)
-Write-Host " [Info] Neoment: Install via Neovim plugin manager" -ForegroundColor DarkGray
-Write-Host "        Add to init.lua: { 'Massolari/neoment', dependencies = { 'nvim-lua/plenary.nvim' } }" -ForegroundColor DarkGray
 
 # ==============================================================================
-# 6. MUSIC (Terminal-based player)
+# 8. MANUAL SETUP
 # ==============================================================================
-Write-Host "--- 6. MUSIC ---" -ForegroundColor Cyan
-Write-Host " [Info] Terminal music player: https://codeberg.org/vardaasen/resistance" -ForegroundColor DarkGray
-Write-Host "        Clone and follow setup instructions in that repo." -ForegroundColor DarkGray
+Write-Host "--- 8. MANUAL ---" -ForegroundColor Cyan
+Write-Host " [Info] Neoment (Matrix in Neovim):" -ForegroundColor DarkGray
+Write-Host "        { 'Massolari/neoment', dependencies = { 'nvim-lua/plenary.nvim' } }" -ForegroundColor DarkGray
 
 Write-Host "`n[DONE] Fun provisioning complete." -ForegroundColor Green

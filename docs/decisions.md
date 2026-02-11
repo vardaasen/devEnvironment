@@ -352,3 +352,91 @@ Utsatt. Krever klargjøring av:
 2. Om devcontainers skal erstatte eller supplere native oppsett
 3. Lisensmodell (Docker Desktop vs alternativer)
 4. Nettverk og TLS for remote Docker
+
+---
+
+## ADR-009: Oppdateringsnotifikasjoner ved terminaloppstart
+
+**Dato:** 2025-02-10
+**Status:** Under utredning
+
+### Kontekst
+
+Mange verktoy installeres via ulike pakkemanagere (Winget, Cargo, Choco, npm, native). Noen auto-oppdaterer (Claude Code native, JetBrains Toolbox), andre gjor det ikke (Winget-pakker, Cargo crates). Brukeren har ingen enhetlig oversikt over hva som er utdatert.
+
+### Problemstilling
+
+Bor `90-banner.ps1` eller en ny modul sjekke for utdaterte pakker ved oppstart?
+
+### Fordeler
+
+- Proaktiv sikkerhet — utdaterte verktoy er en angrepsflate
+- Bevissthet — brukeren vet hva som trenger oppmerksomhet
+- Sentralisert — en plass i stedet for mange
+
+### Ulemper
+
+- Oppstartstid — `winget upgrade --include-unknown` tar 3-8 sekunder
+- Stoy — for mange meldinger drukner i banneren
+- Kompleksitet — flere pakkemanagere, ulike sjekk-metoder
+
+### Mulige tilnaerminger
+
+1. **Bakgrunnsjobb** — Kjor sjekk async, cache resultat, vis ved neste oppstart
+2. **Dedikert kommando** — `Update-DevTools` funksjon som kjorer `provision.ps1 -Upgrade`
+3. **Ukentlig cache** — Sjekk en gang i uka, lagre i `$env:TEMP`, vis i banner hvis funn
+4. **Ekstern monitor** — Dependabot/Renovate for dotfiles-repoet selv
+
+### Relevant eksisterende arkitektur
+
+- `05-checks.ps1` har allerede 24hr cache for Starship/PSReadline-versjoner
+- `90-banner.ps1` har allerede ytelsesadvarsel (>1000ms)
+- `provision.ps1 -Upgrade` finnes allerede som manuell metode
+
+### Beslutning
+
+Utsatt. Implementerer ikke automatiske oppdateringssjekker naa. Manuell `provision.ps1 -Upgrade` og `provision-fun.ps1 -Upgrade` er tilstrekkelig for forste iterasjon.
+
+Vurderes naar oppstartstid-budsjett og cache-strategi er avklart.
+
+---
+
+## ADR-010: Runtime-valg — Deno over Node.js, native Claude Code
+
+**Dato:** 2025-02-11
+**Status:** Vedtatt
+
+### Kontekst
+
+`provision-fun.ps1` trengte en JavaScript/TypeScript-runtime for AI-verktøy og Claude Code skills. Tre alternativer ble vurdert: Node.js, Bun og Deno.
+
+### Alternativer
+
+| Runtime | Fordeler | Ulemper |
+|---|---|---|
+| Node.js | Størst økosystem, mest utbredt | Ingen isolasjon, stor installasjon, npm-avhengigheter |
+| Bun | Rask, npm-kompatibel, Claude Code bruker Bun internt | `node_modules`-deteksjon kan bryte auto-install (bekreftet av magarcia jan 2026) |
+| Deno | Permissions-basert isolasjon, TypeScript native, npm-kompatibel | Mindre økosystem, noen npm-pakker trenger tilpasning |
+
+### Claude Code-installasjon
+
+Anthropic lanserte en native binary-installer (okt 2025) som den anbefalte metoden. Binæren er bygget med Buns standalone executable-funksjon, men krever ingen ekstern runtime.
+
+To installasjonsmetoder tilbys via interaktivt valg i scriptet:
+
+1. **Native installer** (`irm https://claude.ai/install.ps1 | iex`) — auto-oppdaterer i bakgrunnen
+2. **Winget** (`Anthropic.ClaudeCode`) — manuell kontroll, krever `winget upgrade`
+
+### Beslutning
+
+1. **Deno som valgfri runtime** — installeres via `DenoLand.Deno` i Winget. Brukes for Claude Code skills og generell TypeScript-kjøring. Denos permissions-modell gir bedre isolasjon enn Node.js.
+
+2. **Node.js fjernet som avhengighet** — Claude Code trenger det ikke lenger med native installer.
+
+3. **Interaktivt valg for Claude Code** — brukeren velger mellom native (auto-update) og Winget (manuell kontroll) ved installasjon.
+
+### Referanser
+
+- magarcia: "Why I Switched from Bun to Deno for Claude Code Skills" (jan 2026)
+- Anthropic: Native installer announcement (okt 2025)
+- claudefa.st: "Claude Code Native Installer: Skip Node.js Entirely"

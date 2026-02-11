@@ -53,8 +53,8 @@ Describe "provision-fun.ps1" {
             $ScriptContent | Should -Match 'AI TOOLING'
         }
 
-        It "Installs Claude Code" {
-            $ScriptContent | Should -Match 'claude-code'
+        It "References Claude Code" {
+            $ScriptContent | Should -Match 'claude'
         }
 
         It "Installs Warp" {
